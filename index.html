@@ -720,11 +720,11 @@ function exportLmbCsv(){
 function generateLmbCsvBlob(){
   const refs = Object.keys(qty);
   const lines = [];
-  lines.push(`"${selectedClient.ref||''}";;;`);
+  lines.push(`${selectedClient.ref||''}\t\t\t`);
   refs.forEach(r=>{
     const p = PRODUCTS.find(pp=>pp.ref===r);
     const code = p.lmb || p.ref;
-    lines.push(`${code};${qty[r]};${p.pu_ht};`);
+    lines.push(`${code}; ${qty[r]}; ${p.pu_ht}`);
   });
   const csvContent = "\uFEFF" + lines.join("\r\n");
   return new Blob([csvContent], {type:"text/csv;charset=utf-8;"});
