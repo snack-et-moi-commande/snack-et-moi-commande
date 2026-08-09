@@ -560,7 +560,7 @@ function openReviewModal(){
 
       <div class="export-actions">
         <button class="export-btn" id="expExcel"><span class="icon">📊</span><span>Exporter en Excel<br><small>Format bon de commande Snack & Moi</small></span></button>
-        <button class="export-btn" id="expLmb"><span class="icon">📁</span><span>Exporter CSV Lundi Matin Business<br><small>Import direct commande + client</small></span></button>
+        <button class="export-btn" id="expLmb"><span class="icon">📁</span><span>Exporter CSV Lundi Matin Business<br><small>Format import simple</small></span></button>
         <button class="export-btn" id="sendMailFiles"><span class="icon">📎</span><span id="sendMailFilesLabel"></span></button>
         <button class="export-btn" id="copyMail"><span class="icon">📋</span><span>Copier le texte de confirmation<br><small>Solution de secours — collez ensuite dans Mail</small></span></button>
       </div>
@@ -719,19 +719,12 @@ function exportLmbCsv(){
 }
 function generateLmbCsvBlob(){
   const refs = Object.keys(qty);
-  const ordRef = orderNumber();
-  const idPays = (selectedClient.pays||"").toUpperCase()==="FRANCE" ? "77" : "";
   const lines = [];
-  lines.push("#Commentaire;;;;;;;;;;;;;");
-  lines.push("#CDC;ref_cdc_externe;ref_contact(optionel);nom_contact;text_adresse_fac;cp_fac;ville_fac;id_pays (77 pour la france);text_adresse_liv;cp_liv;ville_liv;id_liv;note;date(format: AAAA-MM-JJ [HH:MM:SS]);email;téléphone");
-  lines.push("#ART;ref_cdc_externe;ref_lmb;ref_interne;ref_constrcteur;libellé;pu_ht;qte;remise;tva;description courte;;;");
-  lines.push("#;;;;;;;;;;;;;");
-  const cdc = ["CDC", ordRef, "", selectedClient.nom, selectedClient.adresse, selectedClient.cp, selectedClient.ville, idPays, selectedClient.adresse, selectedClient.cp, selectedClient.ville, idPays, "Commande app mobile Snack & Moi", todayISO(), selectedClient.email, selectedClient.tel];
-  lines.push(cdc.map(csvEscape).join(";"));
+  lines.push(`"${selectedClient.ref||''}";;;`);
   refs.forEach(r=>{
     const p = PRODUCTS.find(pp=>pp.ref===r);
-    const art = ["ART", ordRef, p.lmb||"", p.ref, "", p.libelle, p.pu_ht, qty[r], 0, 5.5, ""];
-    lines.push(art.map(csvEscape).join(";")+";;;");
+    const code = p.lmb || p.ref;
+    lines.push(`${code};${qty[r]};${p.pu_ht};`);
   });
   const csvContent = "\uFEFF" + lines.join("\r\n");
   return new Blob([csvContent], {type:"text/csv;charset=utf-8;"});
@@ -867,7 +860,7 @@ async function sendConfirmationEmailWithFiles(){
         a.download = f.name;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
       });
-      alert("Adresse copiée : "+to+"\n\n"+attachmentNote.charAt(0).toUpperCase()+attachmentNote.slice(1)+" "+(files.length>1?"ont été téléchargés":"a été téléchargé")+" — ouvrez Mail, collez l'adresse dans le destinataire, et joignez le(s) fichier(s) (bouton trombone).");
+      alert("Adresse copiée : "+to+"\nObjet à saisir : "+subject+"\n\n"+attachmentNote.charAt(0).toUpperCase()+attachmentNote.slice(1)+" "+(files.length>1?"ont été téléchargés":"a été téléchargé")+" — ouvrez Mail, collez l'adresse dans le destinataire, saisissez l'objet, et joignez le(s) fichier(s) (bouton trombone).");
     }
 
     let canShareFiles = false;
@@ -876,6 +869,7 @@ async function sendConfirmationEmailWithFiles(){
     if(canShareFiles){
       try{
         await navigator.share({ title: subject, text: body, files });
+        alert("Rappel — l'objet ne se copie pas automatiquement dans Mail :\n\nÀ coller (destinataire) : déjà dans le presse-papier\nObjet à saisir : "+subject);
       }catch(shareErr){
         if(shareErr && shareErr.name === 'AbortError'){
           // user cancelled the share sheet — nothing more to do
