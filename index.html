@@ -588,7 +588,7 @@ function updateTargetTabs(){
   if(label){
     const to = sendTarget==='siege' ? SIEGE_EMAIL : (selectedClient.email || 'Aucun e-mail enregistré');
     const filesDesc = sendTarget==='siege' ? 'CSV LMB joint' : 'Excel + PDF joints';
-    label.innerHTML = `Envoyer à ${to}<br><small>${filesDesc} — Mail s'ouvre, fichier(s) à joindre</small>`;
+    label.innerHTML = `Envoyer (${filesDesc})<br><small>${to} — adresse copiée automatiquement</small>`;
   }
 }
 
@@ -843,32 +843,39 @@ async function sendConfirmationEmailWithFiles(){
 
     if(sendTarget === 'siege'){
       const csvBlob = generateLmbCsvBlob();
-      files = [{blob: csvBlob, name: base+"_LMB.csv"}];
-      attachmentNote = "l'export CSV Lundi Matin Business";
+      files = [new File([csvBlob], base+"_LMB.csv", {type:"text/csv"})];
+      attachmentNote = "le CSV LMB";
     } else {
       const excelBlob = generateOrderExcelBlob();
       const pdfBlob = await generateOrderPdfBlob();
-      files = [{blob: excelBlob, name: base+".xlsx"}, {blob: pdfBlob, name: base+".pdf"}];
-      attachmentNote = "les fichiers Excel et PDF";
+      files = [
+        new File([excelBlob], base+".xlsx", {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),
+        new File([pdfBlob], base+".pdf", {type:"application/pdf"})
+      ];
+      attachmentNote = "l'Excel et le PDF";
     }
 
-    // Download attachment(s)
-    files.forEach(f=>{
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(f.blob);
-      a.download = f.name;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    });
+    // Copy recipient address to clipboard so it can be pasted into the "To" field
+    if(to && navigator.clipboard && navigator.clipboard.writeText){
+      try{ await navigator.clipboard.writeText(to); }catch(e){}
+    }
 
-    // Open Mail with recipient/subject/body pre-filled
-    const mailto = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.location.href = mailto;
-
-    setTimeout(()=>{
-      alert("Mail s'ouvre avec le destinataire pré-rempli. "+attachmentNote.charAt(0).toUpperCase()+attachmentNote.slice(1)+" ont été téléchargé(s) — joignez-les au message (bouton trombone) avant d'envoyer.");
-    }, 400);
+    if(navigator.canShare && navigator.canShare({files})){
+      alert("Adresse copiée : "+to+"\n\nLe partage va s'ouvrir avec "+attachmentNote+" déjà joint(s) — choisissez Mail, puis collez l'adresse (appui long → Coller) dans le champ destinataire.");
+      await navigator.share({ title: subject, text: body, files });
+    } else {
+      files.forEach(f=>{
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(f);
+        a.download = f.name;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      });
+      alert("Adresse copiée : "+to+"\n\nLe partage direct n'est pas disponible ici. "+attachmentNote.charAt(0).toUpperCase()+attachmentNote.slice(1)+" ont été téléchargé(s) — ouvrez Mail, collez l'adresse dans le destinataire, et joignez le(s) fichier(s) (bouton trombone).");
+    }
   }catch(e){
-    alert("Impossible de générer les pièces jointes ici. Essayez plutôt \"Copier le texte\", ou ouvrez l'app dans Safari.");
+    if(e && e.name !== 'AbortError'){
+      alert("Impossible de générer les pièces jointes ici. Essayez plutôt \"Copier le texte\", ou ouvrez l'app dans Safari.");
+    }
   }finally{
     btn.innerHTML = originalHtml;
   }
