@@ -855,27 +855,39 @@ async function sendConfirmationEmailWithFiles(){
       attachmentNote = "l'Excel et le PDF";
     }
 
-    // Copy recipient address to clipboard so it can be pasted into the "To" field
+    // Copy recipient address to clipboard (best effort, never blocks the flow)
     if(to && navigator.clipboard && navigator.clipboard.writeText){
       try{ await navigator.clipboard.writeText(to); }catch(e){}
     }
 
-    if(navigator.canShare && navigator.canShare({files})){
-      alert("Adresse copiée : "+to+"\n\nLe partage va s'ouvrir avec "+attachmentNote+" déjà joint(s) — choisissez Mail, puis collez l'adresse (appui long → Coller) dans le champ destinataire.");
-      await navigator.share({ title: subject, text: body, files });
-    } else {
+    function downloadFallback(reason){
       files.forEach(f=>{
         const a = document.createElement('a');
         a.href = URL.createObjectURL(f);
         a.download = f.name;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
       });
-      alert("Adresse copiée : "+to+"\n\nLe partage direct n'est pas disponible ici. "+attachmentNote.charAt(0).toUpperCase()+attachmentNote.slice(1)+" ont été téléchargé(s) — ouvrez Mail, collez l'adresse dans le destinataire, et joignez le(s) fichier(s) (bouton trombone).");
+      alert("Adresse copiée : "+to+"\n\n"+attachmentNote.charAt(0).toUpperCase()+attachmentNote.slice(1)+" "+(files.length>1?"ont été téléchargés":"a été téléchargé")+" — ouvrez Mail, collez l'adresse dans le destinataire, et joignez le(s) fichier(s) (bouton trombone).");
+    }
+
+    let canShareFiles = false;
+    try{ canShareFiles = !!(navigator.canShare && navigator.canShare({files})); }catch(e){ canShareFiles = false; }
+
+    if(canShareFiles){
+      try{
+        await navigator.share({ title: subject, text: body, files });
+      }catch(shareErr){
+        if(shareErr && shareErr.name === 'AbortError'){
+          // user cancelled the share sheet — nothing more to do
+        } else {
+          downloadFallback();
+        }
+      }
+    } else {
+      downloadFallback();
     }
   }catch(e){
-    if(e && e.name !== 'AbortError'){
-      alert("Impossible de générer les pièces jointes ici. Essayez plutôt \"Copier le texte\", ou ouvrez l'app dans Safari.");
-    }
+    alert("Une erreur est survenue pendant la préparation des fichiers. Essayez \"Copier le texte\" en attendant, ou réessayez depuis Safari.");
   }finally{
     btn.innerHTML = originalHtml;
   }
