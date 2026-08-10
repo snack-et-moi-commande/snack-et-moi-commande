@@ -724,8 +724,8 @@ function generateLmbCsvBlob(){
     const priceFr = p.pu_ht.toFixed(2).replace('.', ',');
     lines.push(`${code}; ${qty[r]}; ${priceFr}`);
   });
-  const csvContent = "\uFEFF" + lines.join("\n");
-  return new Blob([csvContent], {type:"text/csv;charset=utf-8;"});
+  const csvContent = lines.join("\r\n");
+  return new Blob([csvContent], {type:"text/csv;charset=windows-1252;"});
 }
 
 // ---------- EMAIL CONFIRMATION ----------
