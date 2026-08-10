@@ -867,7 +867,6 @@ async function sendConfirmationEmailWithFiles(){
     if(canShareFiles){
       try{
         await navigator.share({ title: subject, text: body, files });
-        alert("Rappel — l'objet ne se copie pas automatiquement dans Mail :\n\nÀ coller (destinataire) : déjà dans le presse-papier\nObjet à saisir : "+subject);
       }catch(shareErr){
         if(shareErr && shareErr.name === 'AbortError'){
           // user cancelled the share sheet — nothing more to do
