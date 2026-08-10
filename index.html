@@ -363,7 +363,7 @@
 <body>
 
 <header>
-  <h1>🍪 Snack & Moi — Prise de commande <span style="font-size:10px;font-weight:400;opacity:0.7;">v2026-08-10-2</span></h1>
+  <h1>🍪 Snack & Moi — Prise de commande <span style="font-size:10px;font-weight:400;opacity:0.7;">v2026-08-10-3</span></h1>
   <p>Crackers &amp; TXIPS · Pays Basque</p>
   <div class="tabs" id="famTabs"></div>
 </header>
@@ -715,16 +715,19 @@ function exportLmbCsv(){
 }
 function generateLmbCsvBlob(){
   const refs = Object.keys(qty);
-  const lines = [];
   const clientCode = (selectedClient.ref||'').trim();
-  lines.push(clientCode);
+  const rows = [];
+  rows.push([clientCode]);
   refs.forEach(r=>{
     const p = PRODUCTS.find(pp=>pp.ref===r);
     const code = p.lmb || p.ref;
     const priceFr = p.pu_ht.toFixed(2).replace('.', ',');
-    lines.push(`${code}; ${qty[r]}; ${priceFr}`);
+    rows.push([code, qty[r], priceFr]);
   });
-  const csvContent = lines.join("\r\n");
+  // Build via a real worksheet, then let SheetJS's CSV writer strip any blank rows
+  // and emit clean DOS (CRLF) line endings — client code row is always kept first.
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const csvContent = XLSX.utils.sheet_to_csv(ws, {FS:'; ', RS:'\r\n', blankrows:false});
   return new Blob([csvContent], {type:"text/csv;charset=windows-1252;"});
 }
 
