@@ -559,8 +559,6 @@ function openReviewModal(){
       </div>
 
       <div class="export-actions">
-        <button class="export-btn" id="expExcel"><span class="icon">📊</span><span>Exporter en Excel<br><small>Format bon de commande Snack & Moi</small></span></button>
-        <button class="export-btn" id="expLmb"><span class="icon">📁</span><span>Exporter CSV Lundi Matin Business<br><small>Format import simple</small></span></button>
         <button class="export-btn" id="sendMailFiles"><span class="icon">📎</span><span id="sendMailFilesLabel"></span></button>
         <button class="export-btn" id="copyMail"><span class="icon">📋</span><span>Copier le texte de confirmation<br><small>Solution de secours — collez ensuite dans Mail</small></span></button>
       </div>
@@ -568,8 +566,6 @@ function openReviewModal(){
   </div>`;
   document.getElementById('closeReview').onclick = ()=> root.innerHTML='';
   document.getElementById('reviewOverlay').addEventListener('click', e=>{ if(e.target.id==='reviewOverlay') root.innerHTML=''; });
-  document.getElementById('expExcel').onclick = exportExcel;
-  document.getElementById('expLmb').onclick = exportLmbCsv;
   document.getElementById('copyMail').onclick = copyConfirmationEmail;
   document.getElementById('sendMailFiles').onclick = sendConfirmationEmailWithFiles;
 
