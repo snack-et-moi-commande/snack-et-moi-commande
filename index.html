@@ -363,7 +363,7 @@
 <body>
 
 <header>
-  <h1>🍪 Snack & Moi — Prise de commande <span style="font-size:10px;font-weight:400;opacity:0.7;">v2026-08-10-8</span></h1>
+  <h1>🍪 Snack & Moi — Prise de commande <span style="font-size:10px;font-weight:400;opacity:0.7;">v2026-08-10-9</span></h1>
   <p>Crackers &amp; TXIPS · Pays Basque</p>
   <div class="tabs" id="famTabs"></div>
 </header>
@@ -945,7 +945,7 @@ async function sendConfirmationEmailWithFiles(){
       try{ await navigator.clipboard.writeText(to); }catch(e){}
     }
 
-    function downloadFallback(reason){
+        function downloadFallback(){
       files.forEach(f=>{
         const a = document.createElement('a');
         a.href = URL.createObjectURL(f);
@@ -953,7 +953,9 @@ async function sendConfirmationEmailWithFiles(){
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
       });
       if(sendTarget === 'siege' && currentOrderNumber){ deleteProposal(currentOrderNumber); }
-      alert("Adresse copiée : "+to+"\nObjet à saisir : "+subject+"\n\n"+attachmentNote.charAt(0).toUpperCase()+attachmentNote.slice(1)+" "+(files.length>1?"ont été téléchargés":"a été téléchargé")+" — ouvrez Mail, collez l'adresse dans le destinataire, saisissez l'objet, et joignez le(s) fichier(s) (bouton trombone).");
+      const mailto = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      setTimeout(()=>{ window.location.href = mailto; }, 300);
+      alert((files.length>1?"Les fichiers ont été téléchargés":"Le fichier a été téléchargé")+" (dossier Téléchargements). Mail va s'ouvrir avec le destinataire, l'objet et le message déjà remplis — il ne reste qu'à joindre le(s) fichier(s) (bouton trombone) avant d'envoyer.");
     }
 
     let canShareFiles = false;
@@ -966,16 +968,12 @@ async function sendConfirmationEmailWithFiles(){
       }catch(shareErr){
         if(shareErr && shareErr.name === 'AbortError'){
           // user cancelled the share sheet — nothing more to do
-        } else if(sendTarget === 'siege'){
-          downloadFallback();
         } else {
-          alert("Le partage avec pièces jointes n'a pas fonctionné sur cet appareil. Réessayez depuis un autre navigateur (Safari sur iPhone, Chrome sur Android).");
+          downloadFallback();
         }
       }
-    } else if(sendTarget === 'siege'){
-      downloadFallback();
     } else {
-      alert("Le partage avec pièces jointes n'est pas disponible sur cet appareil/navigateur. Réessayez depuis Safari (iPhone) ou Chrome (Android).");
+      downloadFallback();
     }
   }catch(e){
     alert("Une erreur est survenue pendant la préparation des fichiers. Réessayez depuis Safari ou Chrome.");
