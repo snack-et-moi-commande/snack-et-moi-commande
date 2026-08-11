@@ -363,7 +363,7 @@
 <body>
 
 <header>
-  <h1>🍪 Snack & Moi — Prise de commande <span style="font-size:10px;font-weight:400;opacity:0.7;">v2026-08-10-5</span></h1>
+  <h1>🍪 Snack & Moi — Prise de commande <span style="font-size:10px;font-weight:400;opacity:0.7;">v2026-08-10-7</span></h1>
   <p>Crackers &amp; TXIPS · Pays Basque</p>
   <div class="tabs" id="famTabs"></div>
 </header>
@@ -371,6 +371,7 @@
 <main>
   <div class="card">
     <div class="section-title"><span class="step-num">1</span> Client</div>
+    <button id="openProposalsBtn" style="width:100%;margin-bottom:10px;padding:9px;border-radius:9px;border:1.5px dashed var(--olive);background:var(--cream);color:var(--olive-dark);font-size:12.5px;font-weight:600;cursor:pointer;">📋 Retrouver une proposition envoyée</button>
     <div id="clientSelectedZone" style="display:none;"></div>
     <div id="clientSearchZone">
       <input type="text" id="clientSearch" placeholder="Rechercher un client (nom, ville...)" autocomplete="off">
@@ -405,6 +406,7 @@ const CLIENTS = [{"ref": "C-00387", "nom": "ADOUR DISTRIBUTION - LECLERC ST PAUL
 let currentFamille = "Crackers";
 let selectedClient = null;
 let qty = {}; // ref -> quantity
+let currentOrderNumber = null;
 
 // ---------- FAMILY TABS ----------
 function renderTabs(){
@@ -447,6 +449,7 @@ function selectClient(ref){
     </div>`;
   document.getElementById('changeClientBtn').onclick = ()=>{
     selectedClient = null;
+    currentOrderNumber = null;
     zone.style.display='none';
     document.getElementById('clientSearchZone').style.display='block';
     document.getElementById('clientSearch').value='';
@@ -512,7 +515,97 @@ function openZoom(src, alt){
   document.getElementById('zoomOverlay').onclick = ()=> root.innerHTML='';
 }
 
-// ---------- SUMMARY ----------
+// ---------- SAVED PROPOSALS (local to this device) ----------
+function loadProposals(){
+  try{ return JSON.parse(localStorage.getItem('smProposals')||'[]'); }catch(e){ return []; }
+}
+function saveProposalRecord(){
+  const refs = Object.keys(qty);
+  if(refs.length===0 || !selectedClient) return;
+  const list = loadProposals();
+  const record = {
+    orderNumber: orderNumber(),
+    clientRef: selectedClient.ref,
+    clientNom: selectedClient.nom,
+    clientVille: selectedClient.ville,
+    date: new Date().toISOString(),
+    items: refs.map(r=>({ref:r, qty:qty[r]}))
+  };
+  const idx = list.findIndex(p=>p.orderNumber===record.orderNumber);
+  if(idx>=0) list[idx] = record; else list.unshift(record);
+  if(list.length>200) list.length = 200;
+  try{ localStorage.setItem('smProposals', JSON.stringify(list)); }catch(e){}
+}
+function deleteProposal(orderNum){
+  const list = loadProposals().filter(p=>p.orderNumber!==orderNum);
+  try{ localStorage.setItem('smProposals', JSON.stringify(list)); }catch(e){}
+}
+function loadProposalIntoOrder(record){
+  const client = CLIENTS.find(c=>c.ref===record.clientRef);
+  if(!client){ alert("Ce client n'est plus dans la liste actuelle."); return; }
+  document.getElementById('modalRoot').innerHTML = '';
+  selectClient(client.ref);
+  qty = {};
+  record.items.forEach(it=>{ qty[it.ref] = it.qty; });
+  currentOrderNumber = record.orderNumber;
+  renderCatalog();
+  updateSummary();
+  sendTarget = 'siege';
+  openReviewModal();
+}
+function openProposalsModal(){
+  const root = document.getElementById('modalRoot');
+  const list = loadProposals();
+  root.innerHTML = `
+  <div class="modal-overlay" id="propOverlay">
+    <div class="modal modal-wrap">
+      <button class="close-modal" id="closeProp">×</button>
+      <h2>Propositions envoyées</h2>
+      <div class="sub">Sur cet appareil uniquement</div>
+      <input type="text" id="propSearch" placeholder="Rechercher client ou n° commande" style="margin-top:10px;">
+      <div id="propList" style="margin-top:12px;"></div>
+    </div>
+  </div>`;
+  document.getElementById('closeProp').onclick = ()=> root.innerHTML='';
+  document.getElementById('propOverlay').addEventListener('click', e=>{ if(e.target.id==='propOverlay') root.innerHTML=''; });
+  function renderList(filter){
+    const f = (filter||'').toLowerCase();
+    const filtered = list.filter(p=> !f || p.clientNom.toLowerCase().includes(f) || p.orderNumber.toLowerCase().includes(f));
+    const zone = document.getElementById('propList');
+    if(filtered.length===0){ zone.innerHTML = '<div class="empty-note">Aucune proposition trouvée</div>'; return; }
+    zone.innerHTML = filtered.map(p=>{
+      const d = new Date(p.date);
+      const dateStr = d.toLocaleDateString('fr-FR')+' '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+      const nbArticles = p.items.reduce((s,i)=>s+i.qty,0);
+      return `<div class="client-item" data-ord="${p.orderNumber}" style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div class="cname">${p.clientNom}</div>
+          <div class="cmeta">${p.orderNumber} · ${dateStr} · ${nbArticles} art.</div>
+        </div>
+        <button class="prop-del" data-ord="${p.orderNumber}" style="background:none;border:none;color:var(--danger);font-size:18px;padding:4px 8px;">🗑</button>
+      </div>`;
+    }).join('');
+    zone.querySelectorAll('.client-item').forEach(el=>{
+      el.addEventListener('click', e=>{
+        if(e.target.classList.contains('prop-del')) return;
+        const ord = el.dataset.ord;
+        const record = list.find(p=>p.orderNumber===ord);
+        if(record) loadProposalIntoOrder(record);
+      });
+    });
+    zone.querySelectorAll('.prop-del').forEach(btn=>{
+      btn.onclick = (e)=>{
+        e.stopPropagation();
+        deleteProposal(btn.dataset.ord);
+        const i = list.findIndex(p=>p.orderNumber===btn.dataset.ord);
+        if(i>=0) list.splice(i,1);
+        renderList(document.getElementById('propSearch').value);
+      };
+    });
+  }
+  renderList('');
+  document.getElementById('propSearch').addEventListener('input', e=>renderList(e.target.value));
+}
 function updateSummary(){
   const refs = Object.keys(qty);
   const totalArticles = refs.reduce((s,r)=>s+qty[r],0);
@@ -645,11 +738,14 @@ function fallbackCopy(text){
   document.body.removeChild(ta);
 }
 
-// ---------- ORDER NUMBER ----------
+// ---------- ORDER NUMBER (fixed once per order) ----------
 function orderNumber(){
-  const d = new Date();
-  const pad = n=>String(n).padStart(2,'0');
-  return `SM-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+  if(!currentOrderNumber){
+    const d = new Date();
+    const pad = n=>String(n).padStart(2,'0');
+    currentOrderNumber = `SM-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+  }
+  return currentOrderNumber;
 }
 function todayISO(){
   const d = new Date();
@@ -827,6 +923,7 @@ async function sendConfirmationEmailWithFiles(){
   btn.innerHTML = '<span class="icon">⏳</span><span>Préparation…</span>';
   try{
     const {subject, body, to} = buildEmailContent();
+    if(sendTarget === 'client'){ saveProposalRecord(); }
     const base = `Commande_${selectedClient.nom.replace(/[^a-z0-9]/gi,'_')}_${todayISO()}`;
     let files = [];
     let attachmentNote = "";
@@ -857,6 +954,7 @@ async function sendConfirmationEmailWithFiles(){
         a.download = f.name;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
       });
+      if(sendTarget === 'siege' && currentOrderNumber){ deleteProposal(currentOrderNumber); }
       alert("Adresse copiée : "+to+"\nObjet à saisir : "+subject+"\n\n"+attachmentNote.charAt(0).toUpperCase()+attachmentNote.slice(1)+" "+(files.length>1?"ont été téléchargés":"a été téléchargé")+" — ouvrez Mail, collez l'adresse dans le destinataire, saisissez l'objet, et joignez le(s) fichier(s) (bouton trombone).");
     }
 
@@ -866,15 +964,20 @@ async function sendConfirmationEmailWithFiles(){
     if(canShareFiles){
       try{
         await navigator.share({ title: subject, text: body, files });
+        if(sendTarget === 'siege' && currentOrderNumber){ deleteProposal(currentOrderNumber); }
       }catch(shareErr){
         if(shareErr && shareErr.name === 'AbortError'){
           // user cancelled the share sheet — nothing more to do
-        } else {
+        } else if(sendTarget === 'siege'){
           downloadFallback();
+        } else {
+          alert("Le partage avec pièces jointes n'a pas fonctionné sur cet appareil. Utilisez plutôt \"Copier le texte de confirmation\" et attachez les fichiers manuellement si possible, ou réessayez depuis un autre navigateur (Safari sur iPhone, Chrome sur Android).");
         }
       }
-    } else {
+    } else if(sendTarget === 'siege'){
       downloadFallback();
+    } else {
+      alert("Le partage avec pièces jointes n'est pas disponible sur cet appareil/navigateur. Utilisez \"Copier le texte de confirmation\" en attendant, ou réessayez depuis Safari (iPhone) ou Chrome (Android).");
     }
   }catch(e){
     alert("Une erreur est survenue pendant la préparation des fichiers. Essayez \"Copier le texte\" en attendant, ou réessayez depuis Safari.");
@@ -888,6 +991,7 @@ renderTabs();
 renderCatalog();
 renderClientList('');
 updateSummary();
+document.getElementById('openProposalsBtn').onclick = openProposalsModal;
 </script>
 </body>
 </html>
