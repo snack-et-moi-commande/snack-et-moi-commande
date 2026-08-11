@@ -363,7 +363,7 @@
 <body>
 
 <header>
-  <h1>🍪 Snack & Moi — Prise de commande <span style="font-size:10px;font-weight:400;opacity:0.7;">v2026-08-10-9</span></h1>
+  <h1>🍪 Snack & Moi — Prise de commande <span style="font-size:10px;font-weight:400;opacity:0.7;">v2026-08-11-1</span></h1>
   <p>Crackers &amp; TXIPS · Pays Basque</p>
   <div class="tabs" id="famTabs"></div>
 </header>
@@ -817,8 +817,8 @@ function generateLmbCsvBlob(){
     const priceFr = p.pu_ht.toFixed(2).replace('.', ',');
     lines.push(`${code}; ${qty[r]}; ${priceFr}`);
   });
-  const csvContent = lines.join("\n");
-  return new Blob([csvContent], {type:"text/csv"});
+  const csvContent = lines.join("\r\n");
+  return new Blob([csvContent], {type:"application/octet-stream"});
 }
 
 // ---------- EMAIL CONFIRMATION ----------
@@ -928,7 +928,7 @@ async function sendConfirmationEmailWithFiles(){
 
     if(sendTarget === 'siege'){
       const csvBlob = generateLmbCsvBlob();
-      files = [new File([csvBlob], base+"_LMB.csv", {type:"text/csv"})];
+      files = [new File([csvBlob], base+"_LMB.csv", {type:"application/octet-stream"})];
       attachmentNote = "le CSV LMB";
     } else {
       const excelBlob = generateOrderExcelBlob();
