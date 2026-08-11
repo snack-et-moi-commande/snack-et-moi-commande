@@ -363,7 +363,7 @@
 <body>
 
 <header>
-  <h1>🍪 Snack & Moi — Prise de commande <span style="font-size:10px;font-weight:400;opacity:0.7;">v2026-08-11-1</span></h1>
+  <h1>🍪 Snack & Moi — Prise de commande <span style="font-size:10px;font-weight:400;opacity:0.7;">v2026-08-11-3</span></h1>
   <p>Crackers &amp; TXIPS · Pays Basque</p>
   <div class="tabs" id="famTabs"></div>
 </header>
@@ -810,12 +810,12 @@ function exportLmbCsv(){
 function generateLmbCsvBlob(){
   const refs = Object.keys(qty);
   const lines = [];
-  lines.push((selectedClient.ref||'').trim());
+  lines.push(`"${(selectedClient.ref||'').trim()}";;;`);
   refs.forEach(r=>{
     const p = PRODUCTS.find(pp=>pp.ref===r);
     const code = p.lmb || p.ref;
     const priceFr = p.pu_ht.toFixed(2).replace('.', ',');
-    lines.push(`${code}; ${qty[r]}; ${priceFr}`);
+    lines.push(`${code};${qty[r]};${priceFr};`);
   });
   const csvContent = lines.join("\r\n");
   return new Blob([csvContent], {type:"application/octet-stream"});
@@ -865,7 +865,7 @@ function loadImageAsDataUrl(url){
         canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img,0,0);
-        resolve(canvas.toDataURL('image/jpeg', 0.85));
+        resolve({dataUrl: canvas.toDataURL('image/jpeg', 0.85), w: img.naturalWidth, h: img.naturalHeight});
       }catch(e){ resolve(null); }
     };
     img.onerror = ()=> resolve(null);
@@ -890,13 +890,24 @@ async function generateOrderPdfBlob(){
     const lineTotal = qty[r]*p.pu_ht;
     totalHT += lineTotal;
     if(y > 260){ doc.addPage(); y = 18; }
-    let imgData = null;
-    if(p.img){ imgData = await loadImageAsDataUrl(p.img); }
+    let imgInfo = null;
+    if(p.img){ imgInfo = await loadImageAsDataUrl(p.img); }
     const boxH = 26;
-    if(imgData){
-      try{ doc.addImage(imgData, 'JPEG', 14, y, 22, 22); }catch(e){}
+    const boxSize = 22;
+    if(imgInfo){
+      try{
+        let w = boxSize, h = boxSize;
+        if(imgInfo.w && imgInfo.h){
+          const ratio = imgInfo.w / imgInfo.h;
+          if(ratio >= 1){ w = boxSize; h = boxSize / ratio; }
+          else { h = boxSize; w = boxSize * ratio; }
+        }
+        const offsetX = 14 + (boxSize - w)/2;
+        const offsetY = y + (boxSize - h)/2;
+        doc.addImage(imgInfo.dataUrl, 'JPEG', offsetX, offsetY, w, h);
+      }catch(e){}
     } else {
-      doc.setDrawColor(200); doc.rect(14, y, 22, 22);
+      doc.setDrawColor(200); doc.rect(14, y, boxSize, boxSize);
       doc.setFontSize(7); doc.text("photo", 20, y+12);
     }
     doc.setFontSize(11);
@@ -968,6 +979,35 @@ async function sendConfirmationEmailWithFiles(){
       }catch(shareErr){
         if(shareErr && shareErr.name === 'AbortError'){
           // user cancelled the share sheet — nothing more to do
+        } else if(files.length > 1){
+          // Multi-file share can fail on some Android/Chrome + app combos even when single-file works.
+          // Retry with just the most important file (PDF for client, CSV for siège) shared automatically,
+          // the rest downloaded for manual attach.
+          const mainFile = files.find(f=>f.name.endsWith('.xlsx')) || files[0];
+          const otherFiles = files.filter(f=>f!==mainFile);
+          let mainShared = false;
+          try{
+            if(navigator.canShare && navigator.canShare({files:[mainFile]})){
+              await navigator.share({ title: subject, text: body, files:[mainFile] });
+              mainShared = true;
+              if(sendTarget === 'siege' && currentOrderNumber){ deleteProposal(currentOrderNumber); }
+            }
+          }catch(e2){
+            if(e2 && e2.name === 'AbortError'){ mainShared = true; } // user cancelled deliberately
+          }
+          if(mainShared){
+            otherFiles.forEach(f=>{
+              const a = document.createElement('a');
+              a.href = URL.createObjectURL(f);
+              a.download = f.name;
+              document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            });
+            if(otherFiles.length){
+              alert((otherFiles.length>1?"Les autres fichiers ont":"L'autre fichier a")+" été téléchargé(s) (dossier Téléchargements) — à joindre manuellement (bouton trombone) au message déjà ouvert si besoin.");
+            }
+          } else {
+            downloadFallback();
+          }
         } else {
           downloadFallback();
         }
