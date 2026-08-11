@@ -363,7 +363,7 @@
 <body>
 
 <header>
-  <h1>🍪 Snack & Moi — Prise de commande <span style="font-size:10px;font-weight:400;opacity:0.7;">v2026-08-11-6</span></h1>
+  <h1>🍪 Snack & Moi — Prise de commande <span style="font-size:10px;font-weight:400;opacity:0.7;">v2026-08-11-8</span></h1>
   <p>Crackers &amp; TXIPS · Pays Basque</p>
   <div class="tabs" id="famTabs"></div>
 </header>
@@ -841,7 +841,8 @@ function generateLmbCsvBlob(){
   // plain \n and let iOS do that conversion itself, avoiding the doubling.
   const sep = isIOS() ? "\n" : "\r\n";
   const csvContent = lines.join(sep);
-  return new Blob([csvContent], {type:"application/octet-stream"});
+  const mimeType = isIOS() ? "application/octet-stream" : "text/csv";
+  return new Blob([csvContent], {type: mimeType});
 }
 
 // ---------- EMAIL CONFIRMATION ----------
@@ -957,12 +958,6 @@ async function sendConfirmationEmailWithFiles(){
   const btn = document.getElementById('sendMailFiles');
   const originalHtml = btn.innerHTML;
   btn.innerHTML = '<span class="icon">⏳</span><span>Préparation…</span>';
-  const watchdog = setTimeout(()=>{
-    if(btn.innerHTML.includes('Préparation')){
-      btn.innerHTML = originalHtml;
-      alert("La préparation des fichiers prend trop de temps (probablement une image qui ne charge pas). Réessayez, ou vérifiez votre connexion.");
-    }
-  }, 12000);
   try{
     const {subject, body, to} = buildEmailContent();
     if(sendTarget === 'client'){ saveProposalRecord(); }
@@ -972,7 +967,7 @@ async function sendConfirmationEmailWithFiles(){
 
     if(sendTarget === 'siege'){
       const csvBlob = generateLmbCsvBlob();
-      files = [new File([csvBlob], base+"_LMB.csv", {type:"application/octet-stream"})];
+      files = [new File([csvBlob], base+"_LMB.csv", {type: isIOS() ? "application/octet-stream" : "text/csv"})];
       attachmentNote = "le CSV LMB";
     } else {
       const excelBlob = generateOrderExcelBlob();
@@ -1049,7 +1044,6 @@ async function sendConfirmationEmailWithFiles(){
   }catch(e){
     alert("Une erreur est survenue pendant la préparation des fichiers : "+(e && e.message ? e.message : e)+". Réessayez depuis Safari ou Chrome.");
   }finally{
-    clearTimeout(watchdog);
     btn.innerHTML = originalHtml;
   }
 }
