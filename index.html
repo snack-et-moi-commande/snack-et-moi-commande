@@ -363,7 +363,7 @@
 <body>
 
 <header>
-  <h1>🍪 Snack & Moi — Prise de commande <span style="font-size:10px;font-weight:400;opacity:0.7;">v2026-08-13-1</span></h1>
+  <h1>🍪 Snack & Moi — Prise de commande <span style="font-size:10px;font-weight:400;opacity:0.7;">v2026-08-13-2</span></h1>
   <p>Crackers &amp; TXIPS · Pays Basque</p>
   <div class="tabs" id="famTabs"></div>
 </header>
@@ -650,7 +650,6 @@ function openReviewModal(){
         <div class="target-tab" data-target="client" style="flex:1;text-align:center;padding:9px 4px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--ink);">Client<br><span style="font-weight:400;font-size:10.5px;">Proposition de réassort</span></div>
         <div class="target-tab" data-target="siege" style="flex:1;text-align:center;padding:9px 4px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--ink);">Siège<br><span style="font-weight:400;font-size:10.5px;">${SIEGE_EMAIL}</span></div>
       </div>
-      <div id="csvPreviewZone"></div>
 
       <div class="export-actions">
         <button class="export-btn" id="sendMailFiles"><span class="icon">📎</span><span id="sendMailFilesLabel"></span></button>
@@ -675,21 +674,8 @@ function updateTargetTabs(){
   const label = document.getElementById('sendMailFilesLabel');
   if(label){
     const to = sendTarget==='siege' ? SIEGE_EMAIL : (selectedClient.email || 'Aucun e-mail enregistré');
-    const filesDesc = sendTarget==='siege' ? 'CSV LMB joint' : 'Excel joint';
+    const filesDesc = sendTarget==='siege' ? 'CSV LMB joint' : 'Excel + PDF joints';
     label.innerHTML = `Envoyer (${filesDesc})<br><small>${to} — adresse copiée automatiquement</small>`;
-  }
-  const previewZone = document.getElementById('csvPreviewZone');
-  if(previewZone){
-    if(sendTarget === 'siege'){
-      const csvBlob = generateLmbCsvBlob();
-      csvBlob.text().then(txt=>{
-        const visible = txt.replace(/\r\n/g,'⏎\n').replace(/\r(?!\n)/g,'⏎');
-        previewZone.innerHTML = `<div class="section-title" style="margin-top:12px;">Aperçu CSV (⏎ = fin de ligne)</div>
-          <pre style="background:var(--cream);border:1px solid var(--line);border-radius:9px;padding:10px;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:140px;overflow-y:auto;">${visible.replace(/</g,'&lt;')}</pre>`;
-      });
-    } else {
-      previewZone.innerHTML = '';
-    }
   }
 }
 
@@ -719,7 +705,7 @@ Le commercial Snack & Moi`;
   // sendTarget === 'client'
   const subject = `Proposition de commande`;
   const body = `Bonjour,
-Je viens de passer au magasin et voici ma proposition de réassort en fichier joint (format Excel).
+Je viens de passer au magasin et voici ma proposition de réassort en fichiers joints (formats Excel et PDF).
 Merci de me confirmer si c'est ok pour vous et me communiquer un numéro de commande si c'est nécessaire pour vous.
 Bien à vous,
 le commercial Snack & Moi`;
@@ -971,10 +957,12 @@ async function sendConfirmationEmailWithFiles(){
       attachmentNote = "le CSV LMB";
     } else {
       const excelBlob = generateOrderExcelBlob();
+      const pdfBlob = await generateOrderPdfBlob();
       files = [
-        new File([excelBlob], base+".xlsx", {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})
+        new File([excelBlob], base+".xlsx", {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),
+        new File([pdfBlob], base+".pdf", {type:"application/pdf"})
       ];
-      attachmentNote = "l'Excel";
+      attachmentNote = "l'Excel et le PDF";
     }
 
     // Copy recipient address to clipboard (best effort, never blocks the flow)
